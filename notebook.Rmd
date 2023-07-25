@@ -1,0 +1,81 @@
+---
+title: "15 Minute Cities in the Urban-Rural Nexus"
+output: html_notebook
+---
+
+This tutorial demonstrates how walk access to service can be computed and mapped with R.
+
+
+**Access to Services based on Euclidean Distance**
+```{r}
+library(nngeo)
+library(sf)
+library(tidyverse)
+
+#load the data and pre-process
+origins<-st_read("postcodes.gpkg") %>% #UK data have a specific Coordinate Reference System (British National Grid)
+  st_transform(4326) #globally WGS84 is generally used. Here, we therefore transform the CRS to WGS84 
+origins <- origins %>% #create a unique ID for the origins
+  mutate(
+    id=as.numeric(rownames(origins))
+  )
+destinations<-st_read("POIs.gpkg") 
+destinations<- destinations %>% #create a unique ID for the destinations
+  mutate(
+    id=as.numeric(rownames(destinations))
+  )
+
+#Compute distances from each origin and select POIs within 800 meters 
+nn_out <- st_nn(origins, destinations, k=50, parallel = 34, maxdist = 800) 
+
+#post-processing
+results <- data.frame(
+              id = rep(
+              seq_along(nn_out),
+              lengths(nn_out)
+              ),
+              dest = unlist(nn_out)
+            ) %>%
+          inner_join(st_drop_geometry(origins), by = c("id" = "id"))%>%
+          inner_join(st_drop_geometry(destinations), by = c("dest" = "id"))
+
+head(results)
+
+results <- results %>%
+  group_by(DataZone,fclass) %>%
+  summarise(
+    n=n()
+  )
+
+head(results)
+
+results <- results %>%
+  group_by(DataZone) %>%
+  summarise(
+    n=n()
+  )
+
+```
+
+**Mapping the Results**
+
+```{r}
+library(ggplot2)
+
+dataZones<-st_read("Intermediate_Zone.gpkg") %>%
+  full_join(results, by=c("DataZone"="DataZone"))
+
+
+###TODO
+#mapping n
+
+```
+
+**The Rural-Urban nexus**
+
+```{r}
+#TODO
+#add rural-urban classification
+```
+
+    

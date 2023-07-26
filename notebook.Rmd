@@ -13,7 +13,7 @@ As a first step, services that can be accessed in 10 minute walk need to be iden
 ```{r}
 library(tidyverse) # this library will be used for all data wrangling instructions
 library(sf) # this is a well-established library to deal with spatial data
-library(nngeo) #this library will be used to compute distances 
+#library(nngeo) #this library will be used to compute distances 
 
 #DO NOT RUN 
 

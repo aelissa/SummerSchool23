@@ -3,32 +3,41 @@ title: "15 Minute Cities in the Urban-Rural Nexus"
 output: html_notebook
 ---
 
-This tutorial demonstrates how walk access to service can be computed and mapped with R.
+This tutorial shows one way to compute and map the 15 minute city with R, focusing on Urban Rural differences.
 
 
 **Access to Services based on Euclidean Distance**
+
+As a first step, services that can be accessed in 10 minute walk need to be identified. To do so, we will use a metric based on Euclidean distance, selecting POIs which fall within a 800 meters radius from each postcode in the Lothian region.
+
 ```{r}
-library(nngeo)
-library(sf)
-library(tidyverse)
+library(tidyverse) # this library will be used for all data wrangling instructions
+library(sf) # this is a well-established library to deal with spatial data
+library(nngeo) #this library will be used to compute distances 
+
+
 
 #load the data and pre-process
-origins<-st_read("postcodes.gpkg") %>% #UK data have a specific Coordinate Reference System (British National Grid)
+origins<-st_read("data/postcodes.gpkg") %>% #UK data have a specific Coordinate Reference System (British National Grid)
   st_transform(4326) #globally WGS84 is generally used. Here, we therefore transform the CRS to WGS84 
 origins <- origins %>% #create a unique ID for the origins
   mutate(
     id=as.numeric(rownames(origins))
   )
-destinations<-st_read("POIs.gpkg") 
+destinations<-st_read("data/POIs.gpkg") 
 destinations<- destinations %>% #create a unique ID for the destinations
   mutate(
     id=as.numeric(rownames(destinations))
   )
 
 #Compute distances from each origin and select POIs within 800 meters 
-nn_out <- st_nn(origins, destinations, k=50, parallel = 34, maxdist = 800) 
+nn_out <- st_nn(origins, destinations, k=50, maxdist = 800) 
+
+#If the step above takes too much time, you can directly load the results
+nn_out <- readRDS("data/nn_out.RDS")
 
 #post-processing
+#transform results from list to dataframe
 results <- data.frame(
               id = rep(
               seq_along(nn_out),
@@ -41,41 +50,202 @@ results <- data.frame(
 
 head(results)
 
-results <- results %>%
-  group_by(DataZone,fclass) %>%
-  summarise(
-    n=n()
-  )
+#compute the average number of poi accessible in 10-min walk in each data zone and the average number of services type
 
-head(results)
-
-results <- results %>%
+results_processed <- results %>%
   group_by(DataZone) %>%
   summarise(
-    n=n()
-  )
+    poi = n(),
+    service=length(unique(fclass)),
+    pc = length(unique(id)),
+    poiAvg = poi/pc
+    )
+
+head(results_processed)
+
 
 ```
 
 **Mapping the Results**
 
+We can now visualise the results on a map to reflect on the spatial distribution of services.
+
 ```{r}
 library(ggplot2)
 
-dataZones<-st_read("Intermediate_Zone.gpkg") %>%
-  full_join(results, by=c("DataZone"="DataZone"))
+#load spatial boundaries and join them with the results obtained in the previous section
+#let's start with the number of different service by data zone
+dataZones<-st_read("data/dataZones_UR.gpkg") %>%
+  inner_join(results_processed, by=c("DataZone"="DataZone"))
+
+colnames(dataZones)
+
+#mapping the average poi accessible in 10 minute walk per resident (pp)
+
+ggplot()+
+  geom_sf(aes(fill = poiAvg/(ResPop2011/pc)),
+          colour = "NA",
+          data = dataZones) +
+  #change color palette
+  scale_fill_viridis_c() +
+  #change the background
+  theme_void() + 
+  #add a scale bar
+  ggspatial::annotation_scale(  
+    location = "bl",
+    bar_cols = c("grey60", "white")
+    ) +
+  #change legend title
+  labs(fill = "POI Accessible in 10 min walk\n(Average pp)")+
+  #customize theme
+  theme(
+    text = element_text(family = "Futura-Medium",color = "#22211d"),
+    legend.title = element_text(family = "Futura-Bold", size = 10),
+    legend.text = element_text(family = "Futura-Medium", size = 10),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA),
+    panel.background = element_rect(fill = "#f5f5f2", color = NA)
+    )  
 
 
-###TODO
-#mapping n
+ggplot()+
+  geom_sf(aes(fill = service),
+          colour = "NA",
+          data = dataZones) +
+  #change color palette
+  scale_fill_viridis_c() +
+  #change the background
+  theme_void() + 
+  #add a scale bar
+  ggspatial::annotation_scale(  
+    location = "bl",
+    bar_cols = c("grey60", "white")
+    ) +
+  #change legend title
+  labs(fill = "Service's Types\naccessible in 10 min walk")+
+  #customize theme
+  theme(
+    text = element_text(family = "Futura-Medium",color = "#22211d"),
+    legend.title = element_text(family = "Futura-Bold", size = 10),
+    legend.text = element_text(family = "Futura-Medium", size = 10),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA),
+    panel.background = element_rect(fill = "#f5f5f2", color = NA)
+    )  
+
+#create a score which accounts for both POIs per person and service's types
+
+dataZones<-dataZones %>%
+  mutate(
+    score = scale(poiAvg/(ResPop2011/pc)) + scale(service)
+    )
+
+#map the score
+
+ggplot()+
+  geom_sf(aes(fill = score),
+          colour = "NA",
+          data = dataZones) +
+  #change color palette
+  scale_fill_viridis_c() +
+  #change the background
+  theme_void() + 
+  #add a scale bar
+  ggspatial::annotation_scale(  
+    location = "bl",
+    bar_cols = c("grey60", "white")
+    ) +
+  #change legend title
+  labs(fill = "Access Score")+
+  #customize theme
+  theme(
+    text = element_text(family = "Futura-Medium",color = "#22211d"),
+    legend.title = element_text(family = "Futura-Bold", size = 10),
+    legend.text = element_text(family = "Futura-Medium", size = 10),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA),
+    panel.background = element_rect(fill = "#f5f5f2", color = NA)
+    )  
+
 
 ```
 
+
 **The Rural-Urban nexus**
+Let's now look at the gap between access to services between urban and rural areas.
+
+The Scottish Urban-Rural classification distinguishes between:
+
+1) Large Urban Areas 	Settlements of 125,000 people and over.
+
+2) Other Urban Areas 	Settlements of 10,000 to 124,999 people.
+
+3) Accessible Small Towns 	Settlements of 3,000 to 9,999 people, and within a 30 minute drive time of a Settlement of 10,000 or more.
+
+4) Remote Small Towns 	Settlements of 3,000 to 9,999 people, and with a drive time of over 30 minutes to a Settlement of 10,000 or more.
+
+5) Accessible Rural Areas 	Areas with a population of less than 3,000 people, and within a 30 minute drive time of a Settlement of 10,000 or more.
+
+6) Remote Rural Areas 	Areas with a population of less than 3,000 people, and with a drive time of over 30 minutes to a Settlement of 10,000 or more.
 
 ```{r}
-#TODO
-#add rural-urban classification
+
+head(dataZones)
+#URValue corresponds to the classes above. Let's create more legible classes
+
+dataZones <- dataZones %>%
+  mutate(
+    URclasses = case_when(
+      URValue == 1 ~ "Large Urban Areas",
+      URValue == 2 ~ "Other Urban Areas",
+      URValue == 3 ~ "Small Towns",
+      URValue == 5 ~ "Accessible Rural Areas"
+    ),
+    URclasses = factor(URclasses, levels = c("Large Urban Areas", "Other Urban Areas", "Small Towns", "Accessible Rural Areas"))
+  )
+
+ggplot()+
+  geom_sf(aes(fill = URclasses),
+          colour = "NA",
+          data = dataZones) +
+  #change color palette
+  scale_fill_viridis_d() +
+  #change the background
+  theme_void() + 
+  #add a scale bar
+  ggspatial::annotation_scale(  
+    location = "bl",
+    bar_cols = c("grey60", "white")
+    ) +
+  #change legend title
+  labs(fill = "Urban-Rural Classification")+
+  #customize theme
+  theme(
+    text = element_text(family = "Futura-Medium",color = "#22211d"),
+    legend.text = element_text(family = "Futura-Medium", size = 10),
+    plot.background = element_rect(fill = "#f5f5f2", color = NA),
+    panel.background = element_rect(fill = "#f5f5f2", color = NA)
+    )  
+
+
+dataZones %>%
+  st_drop_geometry() %>%
+  group_by(URclasses) %>%
+  summarise(
+    c_poiAvg = mean(poiAvg, rm.na = TRUE),
+    c_service = mean(service, rm.na = TRUE),
+    c_score = mean(score, rm.na = TRUE)
+  ) %>%
+  pivot_longer(cols = starts_with("c_"), names_to = "variable", values_to = "value")%>%
+  mutate(
+    variable = factor(variable, levels = c("c_poiAvg","c_service","c_score"), labels = c("Average POIs", "Average Services", "Access Score"))
+  ) %>%
+  ggplot(aes(x = URclasses, y = value, fill = URclasses))+
+  geom_bar(stat = "identity", width = 0.5) +
+  scale_fill_viridis_d() +
+  facet_wrap(~variable, scales = "free", ncol = 1) +
+  labs(fill = "Urban-Rural Classification") +
+  theme_minimal()+
+  theme(axis.title = element_blank(), axis.text.x = element_blank(), text = element_text(size = 12))
+  
+
 ```
 
     

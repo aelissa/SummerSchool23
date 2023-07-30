@@ -60,6 +60,8 @@ results <- readRDS("data/results.RDS")
 
 head(results)
 
+```
+```{r}
 #compute the average number of poi accessible in 10-min walk in each data zone and the average number of services type
 
 results_processed <- results %>%
@@ -73,8 +75,8 @@ results_processed <- results %>%
 
 head(results_processed)
 
-
 ```
+
 
 **Mapping the Results**
 
@@ -90,7 +92,11 @@ dataZones<-st_read("data/dataZones_UR.gpkg") %>%
 
 colnames(dataZones)
 
-#mapping the average poi accessible in 10 minute walk per resident (pp)
+```
+
+Map showing the average number of POIs accessible in 10 minute walk per resident (pp)
+
+```{r}
 
 ggplot()+
   geom_sf(aes(fill = poiAvg/(ResPop2011/pc)),
@@ -106,7 +112,7 @@ ggplot()+
     bar_cols = c("grey60", "white")
     ) +
   #change legend title
-  labs(fill = "POI Accessible in 10 min walk\n(Average pp)")+
+  labs(fill = "POI Accessible (Avg pp) \nin 10 min walk")+
   #customize theme
   theme(
     text = element_text(family = "Futura-Medium",color = "#22211d"),
@@ -116,6 +122,11 @@ ggplot()+
     panel.background = element_rect(fill = "#f5f5f2", color = NA)
     )  
 
+```
+
+Map showing the average services' types accessible in 10 minute walk
+
+```{r}
 
 ggplot()+
   geom_sf(aes(fill = service),
@@ -131,7 +142,7 @@ ggplot()+
     bar_cols = c("grey60", "white")
     ) +
   #change legend title
-  labs(fill = "Service's Types\naccessible in 10 min walk")+
+  labs(fill = "Services' Types (Avg)\naccessible in 10 min walk")+
   #customize theme
   theme(
     text = element_text(family = "Futura-Medium",color = "#22211d"),
@@ -141,7 +152,11 @@ ggplot()+
     panel.background = element_rect(fill = "#f5f5f2", color = NA)
     )  
 
-#create a score which accounts for both POIs per person and service's types
+```
+
+Create and map a score which accounts for both POIs per person and service's types
+
+```{r}
 
 dataZones<-dataZones %>%
   mutate(
@@ -174,12 +189,12 @@ ggplot()+
     panel.background = element_rect(fill = "#f5f5f2", color = NA)
     )  
 
-
 ```
 
 
 **The Rural-Urban nexus**
-Let's now look at the gap between access to services between urban and rural areas.
+
+Let's now look at the access to services gaps between urban and rural areas.
 
 The Scottish Urban-Rural classification distinguishes between:
 
@@ -196,10 +211,12 @@ The Scottish Urban-Rural classification distinguishes between:
 6) Remote Rural Areas 	Areas with a population of less than 3,000 people, and with a drive time of over 30 minutes to a Settlement of 10,000 or more.
 
 ```{r}
-
 head(dataZones)
-#URValue corresponds to the classes above. Let's create more legible classes
+```
 
+URValue corresponds to the classes above. Let's create more legible classes.
+
+```{r}
 dataZones <- dataZones %>%
   mutate(
     URclasses = case_when(
@@ -211,6 +228,11 @@ dataZones <- dataZones %>%
     URclasses = factor(URclasses, levels = c("Large Urban Areas", "Other Urban Areas", "Small Towns", "Accessible Rural Areas"))
   )
 
+```
+
+Map of Urban and Rural Areas in the Lothian region.
+
+```{r}
 ggplot()+
   geom_sf(aes(fill = URclasses),
           colour = "NA",
@@ -233,8 +255,11 @@ ggplot()+
     plot.background = element_rect(fill = "#f5f5f2", color = NA),
     panel.background = element_rect(fill = "#f5f5f2", color = NA)
     )  
+```
 
+Bar Plot of the Urban-Rural Gap
 
+```{r}
 dataZones %>%
   st_drop_geometry() %>%
   group_by(URclasses) %>%
@@ -254,8 +279,8 @@ dataZones %>%
   labs(fill = "Urban-Rural Classification") +
   theme_minimal()+
   theme(axis.title = element_blank(), axis.text.x = element_blank(), text = element_text(size = 12))
-  
 
 ```
+
 
     

@@ -1,1 +1,1 @@
-install.packages(c("tidyverse", "sf", "ggplot2", "ggspatial"))
+install.packages(c("tidyverse", "sf", "ggplot2", "nngeo", "ggspatial"))
